@@ -182,7 +182,10 @@ int main(int argc, char **argv)
 		}
 
 		printf("EoF\n") ;
+		printf("\n\nComplete -----\n") ;
+		printf("hm... Ctrl + C\n\n\n\n") ;
 	}
+
 
 	bag.close();
 	ros::shutdown();
