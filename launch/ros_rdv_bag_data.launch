@@ -1,0 +1,6 @@
+<launch>
+	<node pkg="ros_rdv_bag_data" type="ros_rdv_bag_data" name="ros_rdv_bag_data" respawn="false" output="screen">
+		<param name="path_src" type="string" value ="/dataset/rdv-daq-0005_20230607_064923_0.bag" />
+		<param name="path_dst" type="string" value ="/result" />
+	</node>
+</launch>
