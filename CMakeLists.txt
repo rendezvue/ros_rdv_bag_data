@@ -35,8 +35,8 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Boost REQUIRED COMPONENTS system filesystem date_time thread log_setup log)
 find_package(Qt5 COMPONENTS Core Gui Widgets Multimedia REQUIRED)
 #find_package(OpenCV 4.5.3 REQUIRED)
-find_package(OpenCV 4.7.0)
-#find_package(OpenCV REQUIRED)
+#find_package(OpenCV 4.7.0  REQUIRED)
+find_package(OpenCV REQUIRED)
 
 #openmp
 FIND_PACKAGE(OpenMP)
