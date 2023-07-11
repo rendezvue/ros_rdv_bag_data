@@ -8,6 +8,7 @@
 #include <boost/date_time/gregorian/greg_date.hpp>
 #include <boost/date_time/gregorian/gregorian.hpp>
 #include <boost/asio.hpp>
+#include <boost/locale.hpp>
 
 #include <ros/ros.h>
 #include <ros/console.h>
@@ -18,6 +19,35 @@
 #include <sensor_msgs/image_encodings.h>
 
 #include <opencv2/opencv.hpp>
+
+typedef struct FileInfo_
+{
+	std::string str_device_name ;
+	std::string str_date ;
+	std::string str_time ;
+} FileInfo ;
+
+std::vector<std::string> Split(const std::string& s, char seperator)
+{
+	std::vector<std::string> output;
+
+	std::string::size_type prev_pos = 0, pos = 0;
+
+	while ((pos = s.find(seperator, pos)) != std::string::npos)
+	{
+		std::string substring(s.substr(prev_pos, pos - prev_pos));
+
+		if( !substring.empty() )	output.push_back(substring);
+
+		prev_pos = ++pos;
+	}
+
+	int last_len = pos - prev_pos ;
+	if( last_len > 0 )	output.push_back(s.substr(prev_pos, pos - prev_pos)); // Last word
+
+	return output;
+}
+
 
 void Image_File_Write(sensor_msgs::Image::ConstPtr image_ptr, std::string str_name)
 {
@@ -120,26 +150,56 @@ int main(int argc, char **argv)
 	{
 		int len = str_path_src.size() - ifind ;
 		str_base_info = str_path_src.substr(ifind+1, len) ;
-	}
-	
+	}	
 	printf("bag file name : %s\n", str_base_info.c_str()) ;
 
+	unsigned int data_length_by_sec = 0 ;
 	if( !str_base_info.empty() )
 	{
 		std::string str_only_file_name = boost::filesystem::change_extension(str_base_info, "").string();
 		printf("base info : %s\n", str_only_file_name.c_str()) ;
+
+		//총 몇초짜리지??
+		data_length_by_sec = (unsigned int)(dbl_etime - dbl_btime) ;
+		printf(" - Total %d sec.\n", data_length_by_sec) ;	
+		
+		//파일명에서 정보 확인
+		FileInfo fileinfo ;
+		std::vector<std::string> vec_str_base_info = Split(str_only_file_name, '_') ;
+		int size_str_base_info = vec_str_base_info.size() ;
+		if( size_str_base_info > 0 )
+		{
+			if( size_str_base_info > 0)	fileinfo.str_device_name = vec_str_base_info[0] ;
+			if( size_str_base_info > 1)	fileinfo.str_date = vec_str_base_info[1] ;
+			if( size_str_base_info > 2)	fileinfo.str_time = vec_str_base_info[2] ;
+					
+			for( int i=0 ; i<size_str_base_info ; i++ )
+			{
+				printf(" - [%d] %s\n", i, vec_str_base_info[i].c_str()) ;	
+			}
+
+			printf("\n\n") ;	
+		}		
 
 		//저장하고자 하는 토픽 리스트
 		std::string rgb_cam_image = "/arena_camera_node/image_raw";
 		std::string nir_cam_image = "/arena_camera_node_2/image_raw";
 		std::string stereo_cam_left_image = "/zed2i/zed_node/left/image_rect_color";
 		std::string stereo_cam_right_image = "/zed2i/zed_node/right/image_rect_color"; 
+
+		unsigned int count_rgb_cam_image = 0;
+		unsigned int count_nir_cam_image = 0;
+		unsigned int count_stereo_cam_left_image = 0;
+		unsigned int count_stereo_cam_right_image = 0; 
 		
 		std::vector<std::pair<std::string, double>> vec_topic;
 		vec_topic.push_back(std::make_pair(rgb_cam_image, dbl_btime)) ;
 		vec_topic.push_back(std::make_pair(nir_cam_image, dbl_btime)) ;
 		vec_topic.push_back(std::make_pair(stereo_cam_left_image, dbl_btime)) ;
 		vec_topic.push_back(std::make_pair(stereo_cam_right_image, dbl_btime)) ;
+
+		std::vector<unsigned int> vec_topic_count;
+		vec_topic_count.resize(vec_topic.size()) ;
 
 		for(rosbag::MessageInstance const m: rosbag::View(bag))
 		{
@@ -151,7 +211,36 @@ int main(int argc, char **argv)
 			std::string str_topic_name = m.getTopic();			
 			std::vector<std::pair<std::string, double>>::iterator it = find_if(vec_topic.begin(), vec_topic.end(), [&str_topic_name](const std::pair<std::string, double>& elem){ return elem.first == str_topic_name; });
 			if (it != vec_topic.end())
-			{
+			{				
+				std::string str_sensor_name ;
+				std::size_t found = str_topic_name.find("arena_camera_node/");
+				if (found!=std::string::npos)
+				{
+					str_sensor_name = "rgb" ;
+					count_rgb_cam_image++ ;
+				}
+				
+				found = str_topic_name.find("arena_camera_node_2/");
+				if (found!=std::string::npos)
+				{
+					str_sensor_name = "nir" ;
+					count_nir_cam_image++ ;
+				}
+
+				found = str_topic_name.find("zed_node/left/");
+				if (found!=std::string::npos)
+				{
+					str_sensor_name = "left" ;
+					count_stereo_cam_left_image++ ;
+				}
+
+				found = str_topic_name.find("zed_node/right/");
+				if (found!=std::string::npos)
+				{
+					str_sensor_name = "right" ;
+					count_stereo_cam_right_image++ ;
+				}
+				
 				//내가 저장했던 시간과 현재 시간 간격을 체크
 				double dbl_save_time_duration = dbl_mytime - it->second ;
 
@@ -160,17 +249,7 @@ int main(int argc, char **argv)
 				{
 					//시간 간격을 체크하기 위한 저장 시간 저장
 					it->second = dbl_mytime ;
-
-					std::string str_sensor_name ;
-					std::size_t found = str_topic_name.find("arena_camera_node/");
-					if (found!=std::string::npos)	str_sensor_name = "rgb" ;
-					found = str_topic_name.find("arena_camera_node_2/");
-					if (found!=std::string::npos)	str_sensor_name = "nir" ;
-					found = str_topic_name.find("zed_node/left/");
-					if (found!=std::string::npos)	str_sensor_name = "left" ;
-					found = str_topic_name.find("zed_node/right/");
-					if (found!=std::string::npos)	str_sensor_name = "right" ;
-
+	
 					std::string str_write_path = str_path_dst + "/" + str_only_file_name + "_" + str_sensor_name + "_" + std::to_string(dbl_mytime) + ".png" ;
 
 					sensor_msgs::Image::ConstPtr image_ptr = m.instantiate<sensor_msgs::Image>() ;
@@ -180,6 +259,26 @@ int main(int argc, char **argv)
 
 			}
 		}
+
+		//csv파일 저장
+		std::string str_haead = std::string("DAQ Number, 장소, 날짜, 시간, 센서 이름, 수집 수량, 학습유효 수량");
+		std::string str_rgb_info = fileinfo.str_device_name + "," + "" + "," + fileinfo.str_date + "," + fileinfo.str_time + "," + "rgb" + "," + std::to_string(count_rgb_cam_image) + "," + std::to_string(data_length_by_sec) ;
+		std::string str_nir_info = fileinfo.str_device_name + "," + "" + "," + fileinfo.str_date + "," + fileinfo.str_time + "," + "nir" + "," + std::to_string(count_rgb_cam_image) + "," + std::to_string(data_length_by_sec) ;
+		std::string str_left_info = fileinfo.str_device_name + "," + "" + "," + fileinfo.str_date + "," + fileinfo.str_time + "," + "stereo left" + "," + std::to_string(count_rgb_cam_image) + "," + std::to_string(data_length_by_sec) ;
+		std::string str_right_info = fileinfo.str_device_name + "," + "" + "," + fileinfo.str_date + "," + fileinfo.str_time + "," + "stereo right" + "," + std::to_string(count_rgb_cam_image) + "," + std::to_string(data_length_by_sec) ;
+		
+			
+		std::ofstream outfile;
+		std::string str_csv_write_path = str_path_dst + "/" + str_only_file_name + ".csv" ;
+		outfile.open (str_csv_write_path);
+		outfile << boost::locale::conv::between(str_haead, "EUC-KR", "UTF-8") << std::endl ;
+		outfile << boost::locale::conv::between(str_rgb_info, "EUC-KR", "UTF-8") << std::endl ;
+		outfile << boost::locale::conv::between(str_nir_info, "EUC-KR", "UTF-8") << std::endl ;
+		outfile << boost::locale::conv::between(str_left_info, "EUC-KR", "UTF-8") << std::endl ;
+		outfile << boost::locale::conv::between(str_right_info, "EUC-KR", "UTF-8") << std::endl ;
+		outfile.close();
+
+		printf("Write CSV File = %s\n\n\n", str_csv_write_path.c_str()) ;
 
 		printf("EoF\n") ;
 		printf("\n\nComplete -----\n") ;

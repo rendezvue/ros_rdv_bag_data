@@ -32,7 +32,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-find_package(Boost REQUIRED COMPONENTS system filesystem date_time thread log_setup log)
+find_package(Boost REQUIRED COMPONENTS system filesystem date_time thread log_setup log locale)
 find_package(Qt5 COMPONENTS Core Gui Widgets Multimedia REQUIRED)
 #find_package(OpenCV 4.5.3 REQUIRED)
 #find_package(OpenCV 4.7.0  REQUIRED)
