@@ -98,7 +98,30 @@ int main(int argc, char **argv)
 	printf("hz = %d\n", hz ) ;
 	printf(" - diration = %f\n", duration ) ;
 	printf("-----\n") ;
-		
+
+	//parsing해야 하는 bag파일 리스트 수집
+	std::vector<std::string> vec_str_path_src ;
+	
+	//src가 폴더인지 bag파일인지 확인
+	if(boost::filesystem::exists(str_path_src))
+	{
+		if( boost::filesystem::is_directory(str_path_src) )	//폴더라면 내부에 bag파일을 모두 수집한다.
+		{
+			for (auto const & entry : boost::filesystem::recursive_directory_iterator(str_path_src))
+	        {
+	            if (boost::filesystem::is_regular_file(entry) && entry.path().extension() == ".bag")
+	            {
+	            	std::string str_bag_path = entry.path().string() ;
+					vec_str_path_src.push_back(str_bag_path ) ;
+	            }
+	        }
+		}
+		else
+		{
+			vec_str_path_src.push_back(str_path_src) ;
+		}
+	}
+	    
 	//bag파일 읽기
 	rosbag::Bag bag;
 	bag.open(str_path_src, rosbag::bagmode::Read);  // BagMode is Read by default
